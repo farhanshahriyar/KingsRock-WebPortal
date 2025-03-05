@@ -30,6 +30,7 @@ export function DashboardHeader() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [userAvatar, setUserAvatar] = useState<string>("");
   const [userFullName, setUserFullName] = useState<string>("");
   const [userInitials, setUserInitials] = useState<string>("--");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -39,14 +40,14 @@ export function DashboardHeader() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserEmail(user.email || "");
-        
+
         // Fetch profile data
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name')
+          .select('full_name, avatar_url')
           .eq('id', user.id)
           .single();
-        
+
         if (profile?.full_name) {
           setUserFullName(profile.full_name);
           const initials = profile.full_name
@@ -55,11 +56,16 @@ export function DashboardHeader() {
             .join('')
             .toUpperCase();
           setUserInitials(initials);
+          // Set avatar image URL
+          if (profile.avatar_url) {
+            setUserAvatar(profile.avatar_url);
+          }
         }
       }
     };
 
     fetchUserProfile();
+
 
     // Listen for realtime changes to the profile
     const channel = supabase
@@ -151,7 +157,7 @@ export function DashboardHeader() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center px-4">
         <SidebarTrigger />
-        
+
         <div className="flex-1 ml-4">
           <Button
             variant="outline"
@@ -188,7 +194,7 @@ export function DashboardHeader() {
               <p>Toggle theme</p>
             </TooltipContent>
           </Tooltip>
-          
+
           <NotificationsButton />
 
           <DropdownMenu>
@@ -198,7 +204,8 @@ export function DashboardHeader() {
                   <div className="flex items-center space-x-2 cursor-pointer">
                     <span className="text-sm font-medium">{userEmail}</span>
                     <Avatar>
-                      <AvatarImage src="/placeholder.svg" />
+                      {/* <AvatarImage src="/placeholder.svg" /> */}
+                      <AvatarImage src={userAvatar || "/placeholder.svg"} />
                       <AvatarFallback>{userInitials}</AvatarFallback>
                     </Avatar>
                   </div>
@@ -211,7 +218,7 @@ export function DashboardHeader() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem onClick={() => navigate("/profile")}>Profile</DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/settings")}>Settings</DropdownMenuItem>
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 className="text-red-600"
                 onClick={async () => {
                   await supabase.auth.signOut();
@@ -227,8 +234,8 @@ export function DashboardHeader() {
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <form onSubmit={handleSearchSubmit}>
-          <CommandInput 
-            placeholder="Type a command or search..." 
+          <CommandInput
+            placeholder="Type a command or search..."
             value={searchQuery}
             onValueChange={setSearchQuery}
           />

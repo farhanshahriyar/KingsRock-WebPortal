@@ -45,7 +45,7 @@ const Index = () => {
           .select('full_name')
           .eq('id', user.id)
           .single();
-        
+
         setUserProfile(data);
       }
     };
@@ -64,17 +64,17 @@ const Index = () => {
         },
         async (payload) => {
           console.log('New attendance record:', payload);
-          
+
           // Get user details
           const { data: userProfile } = await supabase
             .from('profiles')
             .select('full_name')
             .eq('id', payload.new.user_id)
             .single();
-          
+
           const userName = userProfile?.full_name || 'A team member';
           const status = payload.new.status;
-          
+
           toast.info(`New Attendance Update`, {
             description: `${userName} has marked attendance as ${status}`,
             duration: 5000,
@@ -102,9 +102,9 @@ const Index = () => {
               .select('full_name')
               .eq('id', payload.new.user_id)
               .single();
-            
+
             const userName = userProfile?.full_name || 'A team member';
-            
+
             toast.success(`NOC Request Approved`, {
               description: `${userName}'s NOC request has been approved`,
               duration: 5000,
@@ -132,13 +132,13 @@ const Index = () => {
               .select('full_name')
               .eq('id', payload.new.user_id)
               .single();
-            
+
             const userName = userProfile?.full_name || 'A team member';
             const status = payload.new.status;
             const days = payload.new.requested_days.length;
-            
+
             let title;
-            
+
             if (status === 'approved') {
               title = 'Leave Request Approved';
               toast.success(title, {
@@ -185,10 +185,10 @@ const Index = () => {
   useEffect(() => {
     const fetchAttendanceData = async () => {
       setLoading(true);
-      
+
       const startDate = format(subDays(new Date(), parseInt(timeframe)), 'yyyy-MM-dd');
       const endDate = format(new Date(), 'yyyy-MM-dd');
-      
+
       const { data, error } = await supabase
         .from('attendance')
         .select('*')
@@ -221,10 +221,10 @@ const Index = () => {
   useEffect(() => {
     // Small delay to ensure it shows after page is fully loaded
     const timer = setTimeout(() => {
-      const welcomeMessage = userProfile?.full_name 
-        ? `Welcome back, ${userProfile.full_name}!` 
+      const welcomeMessage = userProfile?.full_name
+        ? `Welcome back, ${userProfile.full_name}!`
         : "Welcome to your dashboard!";
-      
+
       toast.info(welcomeMessage, {
         description: "You'll receive notifications for attendance, leave requests, and NOC approvals here.",
         duration: 5000,
@@ -240,8 +240,8 @@ const Index = () => {
     const presentCount = attendanceData.filter(record => record.status === AttendanceStatus.PRESENT).length;
     const lateCount = attendanceData.filter(record => record.status === AttendanceStatus.LATE).length;
     const totalCount = attendanceData.length;
-    
-    const attendanceRate = totalCount > 0 
+
+    const attendanceRate = totalCount > 0
       ? Math.round(((presentCount + lateCount) / totalCount) * 100)
       : 0;
 
@@ -252,17 +252,23 @@ const Index = () => {
         icon: Calendar,
         description: "Present or late / total days",
       },
-      {
-        title: "Roster Members",
-        value: "12",
-        icon: Users,
-        description: "Active team members",
-      },
+      // {
+      //   title: "Roster Members",
+      //   value: "Comming Soon",
+      //   icon: Users,
+      //   description: "Active team members will be shown here",
+      // },
       {
         title: "NOC Requests",
-        value: "3",
+        value: "4",
         icon: FileText,
-        description: "Pending approvals",
+        description: "Players will receive 4 No Objection Certificates (NOC) per year for extended leave.",
+      },
+      {
+        title: "Leave Requests",
+        value: "7",
+        icon: FileText,
+        description: " Each player is allowed up to 7 days of leave per month.",
       },
     ];
   }, [attendanceData, timeframe]);
@@ -273,35 +279,36 @@ const Index = () => {
       content: `Team achieved ${stats[0].value} attendance in the last ${timeframe} days`,
       timestamp: "Updated now"
     },
-    {
-      type: "NOC",
-      content: "2 new NOC requests pending approval",
-      timestamp: "5 hours ago"
-    },
-    {
-      type: "Member",
-      content: "Monthly attendance report generated",
-      timestamp: "1 day ago"
-    }
+    // {
+    //   type: "NOC",
+    //   content: "2 new NOC requests pending approval",
+    //   timestamp: "5 hours ago"
+    // },
+    // {
+    //   type: "Member",
+    //   content: "Monthly attendance report generated",
+    //   timestamp: "1 day ago"
+    // }
   ], [stats, timeframe]);
 
   return (
     <div className="container mx-auto p-4 lg:p-6 max-w-7xl">
       {loading && <LoadingIndicator />}
-      
+
       <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-2">Hi {userProfile?.full_name?.split(' ')[0] || 'there'}</h1>
+        <h1 className="text-2xl font-bold mb-2">Hi {userProfile?.full_name?.split(' ')[0] || 'there'} ,</h1>
         <h2 className="text-3xl font-bold">Dashboard Overview</h2>
       </div>
-      
-      <AttendanceChart 
-        attendanceData={attendanceData} 
-        timeframe={timeframe} 
-        onTimeframeChange={setTimeframe} 
+
+      <AttendanceChart
+        attendanceData={attendanceData}
+        timeframe={timeframe}
+        onTimeframeChange={setTimeframe}
       />
-      
-      <StatCards stats={stats} />
-      
+
+      <div className="w-full">
+        <StatCards stats={stats} />
+      </div>
       <RecentUpdates updates={recentUpdates} />
     </div>
   );
