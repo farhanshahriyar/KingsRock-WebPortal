@@ -120,7 +120,7 @@ const App = () => {
                             <main className="flex-1 p-4">
                               <Routes>
                                 <Route path="/" element={<Index />} />
-                                <Route path="/announcement" element={<Announcement />} />
+                                {/* <Route path="/announcement" element={<Announcement />} /> */}
                                 <Route path="/attendance" element={<Attendance />} />
                                 <Route path="/noc" element={<NOC />} />
                                 <Route path="/members" element={<Members />} />

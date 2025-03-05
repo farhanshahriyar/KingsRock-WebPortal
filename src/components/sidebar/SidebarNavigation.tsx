@@ -38,15 +38,15 @@ const menuItems = [
     icon: History,
     path: "/update-logs",
     feature: "update_logs",
-    submenu: [
-      { title: "View Logs", path: "/update-logs", feature: "update_logs" },
-      // { 
-      //   title: "Add Update Log", 
-      //   path: "/add-updatelogs", 
-      //   icon: Plus,
-      //   feature: "update_logs.add"
-      // },
-    ],
+    // submenu: [
+    //   { title: "View Logs", path: "/update-logs", feature: "update_logs" },
+    //   // { 
+    //   //   title: "Add Update Log", 
+    //   //   path: "/add-updatelogs", 
+    //   //   icon: Plus,
+    //   //   feature: "update_logs.add"
+    //   // },
+    // ],
   },
 ];
 

@@ -125,7 +125,7 @@ const AttendanceHistory = ({
       <div className="space-y-2">
         {historyData.map(record => <div key={record.id} className="p-3 bg-gray-50 rounded-md flex items-center justify-between">
             <div>
-              <div className="font-medium">{new Date(record.date).toLocaleDateString('en-US', {
+              <div className="font-medium text-gray-900">{new Date(record.date).toLocaleDateString('en-US', {
               weekday: 'short',
               year: 'numeric',
               month: 'short',

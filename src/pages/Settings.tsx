@@ -271,7 +271,6 @@ export default function Settings() {
   };
 
   return <div className="container mx-auto py-6 space-y-8">
-      <PageHeader title="Settings" description="Manage your account settings and preferences." />
 
       <Tabs defaultValue="account" className="w-full">
         <TabsList>
