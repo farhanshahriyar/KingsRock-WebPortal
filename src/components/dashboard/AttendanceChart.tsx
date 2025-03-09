@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   AreaChart,
   Area,
@@ -11,6 +10,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client"; // called my auth system
 
 interface AttendanceRecord {
   id: string;
@@ -36,11 +36,30 @@ interface AttendanceChartProps {
   onTimeframeChange: (value: string) => void;
 }
 
-export function AttendanceChart({ 
-  attendanceData, 
-  timeframe, 
-  onTimeframeChange 
+export function AttendanceChart({
+  attendanceData,
+  timeframe,
+  onTimeframeChange,
 }: AttendanceChartProps) {
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        // Handle error or redirect to login
+        return;
+      }
+      setUser(user); // Store the authenticated user
+    };
+    fetchUser();
+  }, []);
+
+  // Filter attendance data based on the authenticated user
+  const filteredAttendanceData = user
+    ? attendanceData.filter((record) => record.user_id === user.id)
+    : [];
+
   // Transform attendance data for chart display
   const transformAttendanceData = (data: AttendanceRecord[], timeframe: number): ChartDataPoint[] => {
     // Create an array of dates for the selected timeframe
@@ -51,20 +70,20 @@ export function AttendanceChart({
     });
 
     // Initialize counts for each status type
-    const result = dates.map(date => {
+    const result = dates.map((date) => {
       const displayDate = new Date(date);
       return {
-        date: displayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        date: displayDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         Present: 0,
         Late: 0,
         Absent: 0,
-        raw: date
+        raw: date,
       };
     });
 
     // Count attendance for each date and status
-    data.forEach(record => {
-      const dateIndex = result.findIndex(item => item.raw === record.date);
+    data.forEach((record) => {
+      const dateIndex = result.findIndex((item) => item.raw === record.date);
       if (dateIndex !== -1) {
         if (record.status === "present") {
           result[dateIndex].Present += 1;
@@ -79,16 +98,13 @@ export function AttendanceChart({
     return result;
   };
 
-  const chartData = transformAttendanceData(attendanceData, parseInt(timeframe));
+  const chartData = transformAttendanceData(filteredAttendanceData, parseInt(timeframe));
 
   return (
     <Card className="mb-8">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Attendance Overview</CardTitle>
-        <Select 
-          value={timeframe}
-          onValueChange={onTimeframeChange}
-        >
+        <Select value={timeframe} onValueChange={onTimeframeChange}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Select timeframe" />
           </SelectTrigger>
