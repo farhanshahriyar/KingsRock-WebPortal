@@ -94,7 +94,7 @@ const LeaveRequest = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 mb-6">
+      {/* <div className="grid gap-4 md:grid-cols-2 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -134,7 +134,7 @@ const LeaveRequest = () => {
             </p>
           </CardContent>
         </Card>
-      </div>
+      </div> */}
 
       <LeaveRequestForm remainingLeaveDays={remainingLeaveDays} />
       <LeaveRequestList />

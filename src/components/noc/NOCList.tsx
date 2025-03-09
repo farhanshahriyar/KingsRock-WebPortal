@@ -1,4 +1,3 @@
-
 import {
   Table,
   TableBody,
@@ -55,29 +54,70 @@ const NOCList = () => {
   const { toast } = useToast();
   const { role } = useRole();
   const queryClient = useQueryClient();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        toast({
+          title: "Error",
+          description: "User is not authenticated",
+          variant: "destructive",
+        });
+        return;
+      }
+      setUser(user); // Store user data in state
+    };
+
+    fetchUser();
+  }, []); // Runs only once on mount
+
+  useEffect(() => {
+    // Real-time subscription setup
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'noc_requests' }, (payload) => {
+        console.log('Real-time update:', payload);
+        queryClient.invalidateQueries({ queryKey: ['noc-requests'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel); // Cleanup on unmount
+    };
+  }, [queryClient]);
 
   // Query to fetch NOC requests
   const { data: nocs = [], isLoading, error } = useQuery({
     queryKey: ['noc-requests'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!user) {
+        throw new Error("User is not authenticated");
+      }
+
+      const query = supabase
         .from('noc_requests')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        throw new Error(error.message);
+      if (role !== 'kr_admin') {
+        query.eq('user_id', user.id); // Regular users only see their own requests
       }
 
-      // Validate and convert the status to NOCStatus type
+      const { data, error: fetchError } = await query;
+
+      if (fetchError) {
+        throw new Error(fetchError.message);
+      }
+
       return (data || []).map(noc => ({
         ...noc,
-        status: noc.status as NOCStatus // Type assertion since we know the database constrains these values
+        status: noc.status as NOCStatus,
       }));
     },
   });
 
-  // Handle error from query
   useEffect(() => {
     if (error) {
       toast({
@@ -88,54 +128,90 @@ const NOCList = () => {
     }
   }, [error, toast]);
 
-  // Delete mutation
+  // const deleteMutation = useMutation({
+  //   mutationFn: async (id: string) => {
+  //     console.log("Setting delete ID:", id);  // Ensure ID is being passed correctly 
+  //     if (!id) {
+  //       throw new Error("No ID provided for deletion");
+  //     }
+
+  //     const { error } = await supabase
+  //       .from('noc_requests')
+  //       .delete()
+  //       .eq('id', id);
+
+  //     if (error) {
+  //       throw new Error(error.message);
+  //     }
+
+  //     return id;
+  //   },
+  //   onSuccess: (deletedId) => {
+  //     toast({
+  //       title: "Success",
+  //       description: "NOC request deleted successfully",
+  //     });
+  //     queryClient.invalidateQueries({ queryKey: ['noc-requests'] });
+  //   },
+  //   onError: (error) => {
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to delete NOC request: " + error.message,
+  //       variant: "destructive",
+  //     });
+  //   },
+  // });
+
+
+  // Mutation to delete NOC request
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      console.log("Deleting NOC with ID:", id);
-      
-      // Perform the delete operation
+      if (!id) {
+        throw new Error("No ID provided for deletion");
+      }
+  
       const { error } = await supabase
         .from('noc_requests')
         .delete()
         .eq('id', id);
-
+  
       if (error) {
-        console.error("Delete error:", error);
         throw new Error(error.message);
       }
-      
+  
       return id;
     },
+    onMutate: async (id) => {
+      // Optimistically update the cache
+      await queryClient.cancelQueries({ queryKey: ['noc-requests'] });
+  
+      const previousData = queryClient.getQueryData(['noc-requests']);
+      queryClient.setQueryData(['noc-requests'], (oldData: any) => 
+        oldData.filter((noc: NOCRequest) => noc.id !== id)
+      );
+  
+      return { previousData };
+    },
+    onError: (error, id, context) => {
+      queryClient.setQueryData(['noc-requests'], context.previousData);
+      toast({
+        title: "Error",
+        description: "Failed to delete NOC request: " + error.message,
+        variant: "destructive",
+      });
+    },
     onSuccess: (deletedId) => {
-      console.log("Successfully deleted NOC with ID:", deletedId);
-      setIsDeleteAlertOpen(false); // Close the dialog after successful deletion
-      
       toast({
         title: "Success",
         description: "NOC request deleted successfully",
       });
-      
-      // Invalidate and refetch the data
       queryClient.invalidateQueries({ queryKey: ['noc-requests'] });
-    },
-    onError: (error) => {
-      console.error("Delete mutation error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete NOC request: " + (error as Error).message,
-        variant: "destructive",
-      });
     },
   });
 
-  // Update mutation
+  // Update request status mutation
   const updateMutation = useMutation({
-    mutationFn: async (nocData: {
-      id: string;
-      reason: string;
-      message: string;
-      requested_days: string[];
-    }) => {
+    mutationFn: async (nocData: { id: string; reason: string; message: string; requested_days: string[] }) => {
       const { error } = await supabase
         .from('noc_requests')
         .update({
@@ -165,42 +241,6 @@ const NOCList = () => {
     },
   });
 
-  // Update status mutation
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string, status: NOCStatus }) => {
-      const { error } = await supabase
-        .from('noc_requests')
-        .update({ status })
-        .eq('id', id);
-
-      if (error) throw new Error(error.message);
-      return { id, status };
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Success",
-        description: "Status updated successfully",
-      });
-      
-      // Update the selected NOC locally to avoid refetching
-      if (selectedNOC && selectedNOC.id === data.id) {
-        setSelectedNOC({
-          ...selectedNOC,
-          status: data.status
-        });
-      }
-      
-      queryClient.invalidateQueries({ queryKey: ['noc-requests'] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to update status: " + error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   const handleEdit = (noc: NOCRequest) => {
     setSelectedNOC(noc);
     setEditReason(noc.reason);
@@ -209,19 +249,25 @@ const NOCList = () => {
     setIsDialogOpen(true);
   };
 
+  // handleDelete functionality
+  // const handleDelete = (id: string) => {
+  //   setDeleteId(id);
+  //   setIsDeleteAlertOpen(true);
+  // };
+
+  // delete function to be called when delete button is clicked
   const handleDelete = (id: string) => {
-    console.log("Setting delete ID:", id);
-    setDeleteId(id);
-    setIsDeleteAlertOpen(true);
+    console.log("Setting delete ID:", id);  // Ensure ID is being passed correctly
+    setDeleteId(id);  // Set the delete ID when delete button is clicked
+    setIsDeleteAlertOpen(true);  // Open the confirmation alert dialog
   };
 
   const confirmDelete = () => {
     if (deleteId) {
-      console.log("Confirming delete for ID:", deleteId);
-      deleteMutation.mutate(deleteId);
-      // Alert dialog will be closed in onSuccess callback
+      console.log("Confirming delete for ID:", deleteId);  // Ensure deleteId is passed
+      deleteMutation.mutate(deleteId);  // Trigger the mutation for deletion
     } else {
-      console.error("No delete ID set");
+      console.error("No item selected for deletion");  // Handle no ID case
       toast({
         title: "Error",
         description: "No item selected for deletion",
@@ -229,6 +275,18 @@ const NOCList = () => {
       });
     }
   };
+
+  // const confirmDelete = () => {
+  //   if (deleteId) {
+  //     deleteMutation.mutate(deleteId);
+  //   } else {
+  //     toast({
+  //       title: "Error",
+  //       description: "No item selected for deletion",
+  //       variant: "destructive",
+  //     });
+  //   }
+  // };
 
   const handleUpdate = () => {
     if (!selectedNOC) return;
@@ -243,56 +301,19 @@ const NOCList = () => {
 
   const getStatusBadge = (status: NOCStatus) => {
     const variants = {
-      pending: {
-        className: "bg-[#FEF7CD] text-yellow-800 hover:bg-[#FEF7CD]/80",
-        variant: "secondary"
-      },
-      approved: {
-        className: "bg-[#F2FCE2] text-green-800 hover:bg-[#F2FCE2]/80",
-        variant: "secondary"
-      },
-      rejected: {
-        className: "bg-[#ea384c] text-white hover:bg-[#ea384c]/80",
-        variant: "secondary"
-      },
-    } as const;
+      pending: "bg-yellow-100 text-yellow-800",
+      approved: "bg-green-100 text-green-800",
+      rejected: "bg-red-100 text-red-800",
+    };
 
     return (
-      <Badge 
-        variant={variants[status].variant}
-        className={variants[status].className}
-      >
+      <Badge className={`px-3 py-1 text-sm font-medium rounded-full ${variants[status]}`}>
         {status}
       </Badge>
     );
   };
 
-  const calculateNOCDays = (days: string[]) => {
-    return `${days.length} days`;
-  };
-
-  // Set up real-time subscription for NOC request updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'noc_requests'
-        },
-        (payload) => {
-          console.log('Real-time update:', payload);
-          queryClient.invalidateQueries({ queryKey: ['noc-requests'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  const calculateNOCDays = (days: string[]) => `${days.length} days`;
 
   if (isLoading) {
     return (
@@ -310,7 +331,7 @@ const NOCList = () => {
   }
 
   return (
-    <>
+    <div>
       <Card>
         <CardHeader>
           <CardTitle>Your NOC Requests</CardTitle>
@@ -342,10 +363,9 @@ const NOCList = () => {
                     <TableCell>{noc.message}</TableCell>
                     <TableCell>{calculateNOCDays(noc.requested_days)}</TableCell>
                     <TableCell>{getStatusBadge(noc.status)}</TableCell>
-                    <TableCell className="space-x-2">
+                    <TableCell>
                       <Button
                         variant="outline"
-                        size="icon"
                         onClick={() => handleEdit(noc)}
                         disabled={deleteMutation.isPending || updateMutation.isPending}
                       >
@@ -353,7 +373,6 @@ const NOCList = () => {
                       </Button>
                       <Button
                         variant="outline"
-                        size="icon"
                         onClick={() => handleDelete(noc.id)}
                         disabled={deleteMutation.isPending || updateMutation.isPending}
                       >
@@ -365,101 +384,97 @@ const NOCList = () => {
               )}
             </TableBody>
           </Table>
-
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Edit NOC Request</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Reason:</label>
-                  <Input
-                    value={editReason}
-                    onChange={(e) => setEditReason(e.target.value)}
-                    required
-                    disabled={updateMutation.isPending}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Days for NOC:</label>
-                  <Calendar
-                    mode="multiple"
-                    selected={editDays}
-                    onSelect={setEditDays as any}
-                    className="border rounded-md"
-                    disabled={updateMutation.isPending}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Message:</label>
-                  <Textarea
-                    value={editMessage}
-                    onChange={(e) => setEditMessage(e.target.value)}
-                    className="min-h-[150px]"
-                    required
-                    disabled={updateMutation.isPending}
-                  />
-                </div>
-
-                {role === 'kr_admin' && selectedNOC && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Status:</label>
-                    <select
-                      className="w-full border rounded-md p-2"
-                      value={selectedNOC.status}
-                      onChange={(e) => {
-                        const newStatus = e.target.value as NOCStatus;
-                        updateStatusMutation.mutate({
-                          id: selectedNOC.id,
-                          status: newStatus
-                        });
-                      }}
-                      disabled={role !== 'kr_admin' || updateStatusMutation.isPending}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </div>
-                )}
-
-                <Button 
-                  onClick={handleUpdate} 
-                  className="w-full"
-                  disabled={updateMutation.isPending}
-                >
-                  {updateMutation.isPending ? "Updating..." : "Update NOC"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
         </CardContent>
       </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit NOC Request</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reason:</label>
+              <Input
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+                required
+                disabled={updateMutation.isPending}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Days for NOC:</label>
+              <Calendar
+                mode="multiple"
+                selected={editDays}
+                onSelect={setEditDays as any}
+                className="border rounded-md"
+                disabled={updateMutation.isPending}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Message:</label>
+              <Textarea
+                value={editMessage}
+                onChange={(e) => setEditMessage(e.target.value)}
+                className="min-h-[150px]"
+                required
+                disabled={updateMutation.isPending}
+              />
+            </div>
+
+            {role === 'kr_admin' && selectedNOC && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Status:</label>
+                <select
+                  className="w-full border rounded-md p-2"
+                  value={selectedNOC.status}
+                  onChange={(e) => {
+                    const newStatus = e.target.value as NOCStatus;
+                    updateStatusMutation.mutate({
+                      id: selectedNOC.id,
+                      status: newStatus
+                    });
+                  }}
+                  disabled={role !== 'kr_admin' || updateStatusMutation.isPending}
+                >
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            )}
+
+            <Button
+              onClick={handleUpdate}
+              className="w-full"
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? "Updating..." : "Update NOC"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the NOC request.
+              This action will permanently delete the NOC request.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
+            <AlertDialogCancel onClick={() => setIsDeleteAlertOpen(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 };
 
