@@ -276,8 +276,9 @@ const Index = () => {
   const recentUpdates = useMemo(() => [
     {
       type: "Attendance",
-      content: `Team achieved ${stats[0].value} attendance in the last ${timeframe} days`,
-      timestamp: "Updated now"
+      content: `You achieved ${stats[0].value} attendance in the last ${timeframe} days`,
+      // timestamp dynamically from the last attendance record in the past 24 hours
+      timestamp: new Date().toLocaleString(),
     },
     // {
     //   type: "NOC",
