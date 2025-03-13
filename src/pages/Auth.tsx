@@ -190,11 +190,13 @@ export default function Auth() {
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                <span className="bg-background px-2 text-muted-foreground">
+                  Problem signing in? <span className="text-primary cursor-pointer"><a href="mailto:teamkingsrockgg23@gmail.com" target="_blank">Contact Support</a></span>
+                </span>
               </div>
             </div>
 
-            <Button
+            {/* <Button
               variant="outline"
               type="button"
               className="w-full"
@@ -203,7 +205,7 @@ export default function Auth() {
             >
               <Icons.google className="mr-2 h-4 w-4" />
               Continue with Google
-            </Button>
+            </Button> */}
           </Tabs>
         </CardContent>
       </Card>

@@ -41,3 +41,4 @@ export function StatCards({ stats }: StatCardsProps) {
     </div>
   );
 }
+

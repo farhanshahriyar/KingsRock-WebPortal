@@ -88,7 +88,6 @@ const NOCList = () => {
     };
   }, [queryClient]);
 
-  // Query to fetch NOC requests
   const { data: nocs = [], isLoading, error } = useQuery({
     queryKey: ['noc-requests'],
     queryFn: async () => {
@@ -102,15 +101,13 @@ const NOCList = () => {
         .order('created_at', { ascending: false });
 
       if (role !== 'kr_admin') {
-        query.eq('user_id', user.id); // Regular users only see their own requests
+        query.eq('user_id', user.id); // Filter by user
       }
 
       const { data, error: fetchError } = await query;
-
       if (fetchError) {
         throw new Error(fetchError.message);
       }
-
       return (data || []).map(noc => ({
         ...noc,
         status: noc.status as NOCStatus,
@@ -128,88 +125,64 @@ const NOCList = () => {
     }
   }, [error, toast]);
 
-  // const deleteMutation = useMutation({
-  //   mutationFn: async (id: string) => {
-  //     console.log("Setting delete ID:", id);  // Ensure ID is being passed correctly 
-  //     if (!id) {
-  //       throw new Error("No ID provided for deletion");
-  //     }
-
-  //     const { error } = await supabase
-  //       .from('noc_requests')
-  //       .delete()
-  //       .eq('id', id);
-
-  //     if (error) {
-  //       throw new Error(error.message);
-  //     }
-
-  //     return id;
-  //   },
-  //   onSuccess: (deletedId) => {
-  //     toast({
-  //       title: "Success",
-  //       description: "NOC request deleted successfully",
-  //     });
-  //     queryClient.invalidateQueries({ queryKey: ['noc-requests'] });
-  //   },
-  //   onError: (error) => {
-  //     toast({
-  //       title: "Error",
-  //       description: "Failed to delete NOC request: " + error.message,
-  //       variant: "destructive",
-  //     });
-  //   },
-  // });
-
-
-  // Mutation to delete NOC request
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!id) {
         throw new Error("No ID provided for deletion");
       }
-  
-      const { error } = await supabase
+
+      // Delete NOC request from Supabase
+      const { error, data, status, count, statusText } = await supabase
         .from('noc_requests')
         .delete()
         .eq('id', id);
-  
+      console.log(error, id, data, status, count, statusText);  // Log for debugging
       if (error) {
         throw new Error(error.message);
       }
-  
+
       return id;
     },
+
+    // Optimistic UI update - directly update the cache before the mutation happens
     onMutate: async (id) => {
-      // Optimistically update the cache
+      console.log("Optimistically deleting ID:", id);  // Log to ensure correct ID
       await queryClient.cancelQueries({ queryKey: ['noc-requests'] });
-  
       const previousData = queryClient.getQueryData(['noc-requests']);
-      queryClient.setQueryData(['noc-requests'], (oldData: any) => 
+      console.log("Previous data before deletion:", previousData);  // Log for debugging
+
+      // Update the query data optimistically by removing the deleted NOC request from the cache
+      queryClient.setQueryData(['noc-requests'], (oldData: any) =>
         oldData.filter((noc: NOCRequest) => noc.id !== id)
       );
-  
-      return { previousData };
+
+      return { previousData };  // Return the previous data for rollback if needed
     },
+
     onError: (error, id, context) => {
-      queryClient.setQueryData(['noc-requests'], context.previousData);
+      console.error("Error in deletion:", error);
+      queryClient.setQueryData(['noc-requests'], context.previousData);  // Rollback if error occurs
       toast({
         title: "Error",
         description: "Failed to delete NOC request: " + error.message,
         variant: "destructive",
       });
     },
+
     onSuccess: (deletedId) => {
+      console.log("Delete Mutation Success for ID:", deletedId); // Log success
       toast({
         title: "Success",
         description: "NOC request deleted successfully",
       });
+
+      // Refetch the data explicitly after mutation to ensure the UI reflects the change
       queryClient.invalidateQueries({ queryKey: ['noc-requests'] });
+      queryClient.refetchQueries({ queryKey: ['noc-requests'] });  // Force a refetch to refresh the data
     },
   });
 
-  // Update request status mutation
+  // Define the updateMutation for editing the NOC requests
   const updateMutation = useMutation({
     mutationFn: async (nocData: { id: string; reason: string; message: string; requested_days: string[] }) => {
       const { error } = await supabase
@@ -249,13 +222,6 @@ const NOCList = () => {
     setIsDialogOpen(true);
   };
 
-  // handleDelete functionality
-  // const handleDelete = (id: string) => {
-  //   setDeleteId(id);
-  //   setIsDeleteAlertOpen(true);
-  // };
-
-  // delete function to be called when delete button is clicked
   const handleDelete = (id: string) => {
     console.log("Setting delete ID:", id);  // Ensure ID is being passed correctly
     setDeleteId(id);  // Set the delete ID when delete button is clicked
@@ -264,10 +230,10 @@ const NOCList = () => {
 
   const confirmDelete = () => {
     if (deleteId) {
-      console.log("Confirming delete for ID:", deleteId);  // Ensure deleteId is passed
-      deleteMutation.mutate(deleteId);  // Trigger the mutation for deletion
+      console.log("Confirming delete for ID:", deleteId);  // Verify ID
+      deleteMutation.mutate(deleteId);  // Trigger deletion
     } else {
-      console.error("No item selected for deletion");  // Handle no ID case
+      console.error("No item selected for deletion");  // Handle edge case
       toast({
         title: "Error",
         description: "No item selected for deletion",
@@ -275,18 +241,6 @@ const NOCList = () => {
       });
     }
   };
-
-  // const confirmDelete = () => {
-  //   if (deleteId) {
-  //     deleteMutation.mutate(deleteId);
-  //   } else {
-  //     toast({
-  //       title: "Error",
-  //       description: "No item selected for deletion",
-  //       variant: "destructive",
-  //     });
-  //   }
-  // };
 
   const handleUpdate = () => {
     if (!selectedNOC) return;
@@ -433,12 +387,14 @@ const NOCList = () => {
                   value={selectedNOC.status}
                   onChange={(e) => {
                     const newStatus = e.target.value as NOCStatus;
-                    updateStatusMutation.mutate({
+                    updateMutation.mutate({
                       id: selectedNOC.id,
-                      status: newStatus
+                      reason: selectedNOC.reason,
+                      message: selectedNOC.message,
+                      requested_days: selectedNOC.requested_days
                     });
                   }}
-                  disabled={role !== 'kr_admin' || updateStatusMutation.isPending}
+                  disabled={role !== 'kr_admin' || updateMutation.isPending}
                 >
                   <option value="pending">Pending</option>
                   <option value="approved">Approved</option>
