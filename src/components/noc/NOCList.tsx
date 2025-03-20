@@ -191,6 +191,7 @@ const NOCList = () => {
           reason: nocData.reason,
           message: nocData.message,
           requested_days: nocData.requested_days,
+          status: nocData.status,
         })
         .eq('id', nocData.id);
 
@@ -390,6 +391,7 @@ const NOCList = () => {
                     updateMutation.mutate({
                       id: selectedNOC.id,
                       reason: selectedNOC.reason,
+                      status: newStatus,
                       message: selectedNOC.message,
                       requested_days: selectedNOC.requested_days
                     });

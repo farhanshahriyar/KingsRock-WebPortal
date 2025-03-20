@@ -301,7 +301,6 @@
 //   );
 // }
 
-
 import {
   Sheet,
   SheetContent,
@@ -370,7 +369,6 @@ export function NotificationsButton() {
           table: 'attendance',
         },
         async (payload) => {
-          // Get user details
           const { data: userProfile } = await supabase
             .from('profiles')
             .select('full_name')
@@ -403,7 +401,6 @@ export function NotificationsButton() {
         },
         async (payload) => {
           if (payload.old.status !== payload.new.status) {
-            // Get user details
             const { data: userProfile } = await supabase
               .from('profiles')
               .select('full_name')
@@ -437,7 +434,6 @@ export function NotificationsButton() {
         },
         async (payload) => {
           if (payload.old.status !== payload.new.status) {
-            // Get user details
             const { data: userProfile } = await supabase
               .from('profiles')
               .select('full_name')

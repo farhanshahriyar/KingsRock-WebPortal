@@ -58,6 +58,7 @@ const LeaveRequestForm = ({ remainingLeaveDays = 7 }: LeaveRequestFormProps) => 
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  console.log(selectedDays, remainingLeaveDays)
 
   // Use TanStack Query's `useMutation` to handle submitting the leave request
   const mutation = useMutation({

@@ -14,7 +14,7 @@ interface RoleContextType {
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 const featurePermissions = {
-  kr_admin: ["*"], // All access
+  kr_admin: ["*", "dashboard", "settings", "members", "manage_members", "tournaments", "schedule", "leave_request"], // All access
   kr_manager: [
     "dashboard",
     "announcement",
@@ -23,6 +23,10 @@ const featurePermissions = {
     "leave_request",
     "members",
     "tournaments",
+    "members.view",
+    "manage_members",
+    "manage_members.view",
+    "members.edit",
     "schedule",
     "update_logs",
   ],
@@ -33,6 +37,11 @@ const featurePermissions = {
     "noc",
     "leave_request",
     "update_logs",
+    // UI testing purposes it should be 
+    // "members.view",
+    // "manage_members",
+    // "manage_members.view",
+    // "members.edit",
   ],
 };
 
@@ -50,9 +59,16 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     const initializeRole = async () => {
       // Try to get role from Supabase session
       const { data } = await supabase.auth.getSession();
-      if (data.session?.user?.user_metadata?.role) {
-        setRole(data.session.user.user_metadata.role as Role);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.session.user.user_metadata.sub)
+        .single();
+      console.log(profile)
+      if (profile?.role) {
+        setRole(profile.role as Role);
       }
+
     };
 
     initializeRole();
@@ -69,18 +85,18 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   };
 
   // Update user metadata when role changes
-  useEffect(() => {
-    const updateUserMetadata = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        await supabase.auth.updateUser({
-          data: { role }
-        });
-      }
-    };
+  // useEffect(() => {
+  //   const updateUserMetadata = async () => {
+  //     const { data } = await supabase.auth.getUser();
+  //     if (data.user) {
+  //       await supabase.auth.updateUser({
+  //         data: { role }
+  //       });
+  //     }
+  //   };
 
-    updateUserMetadata();
-  }, [role]);
+  //   updateUserMetadata();
+  // }, [role]);
 
   return (
     <RoleContext.Provider value={{ role, setRole, canAccess, getRoleDisplay }}>
