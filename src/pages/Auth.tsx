@@ -1,10 +1,15 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -52,10 +57,15 @@ export default function Auth() {
         password,
       });
       if (error) throw error;
-
+      const userInfo = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", data.user.id)
+        .single();
+      console.log(userInfo.data);
       // Set the user's role
-      if (data.user?.user_metadata?.role) {
-        setRole(data.user.user_metadata.role as any);
+      if (userInfo?.data?.role) {
+        setRole(userInfo.data.role as any);
       } else {
         // Default to kr_member if no role is found
         setRole("kr_member");
@@ -76,9 +86,9 @@ export default function Auth() {
         options: {
           redirectTo: `${window.location.origin}/`,
           queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          }
+            access_type: "offline",
+            prompt: "consent",
+          },
         },
       });
       if (error) throw error;
@@ -91,8 +101,12 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Welcome to KingsRock</CardTitle>
-          <CardDescription>Sign in or create an account to continue</CardDescription>
+          <CardTitle className="text-2xl font-bold">
+            Welcome to KingsRock
+          </CardTitle>
+          <CardDescription>
+            Sign in or create an account to continue
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="space-y-4">
@@ -191,7 +205,15 @@ export default function Auth() {
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-background px-2 text-muted-foreground">
-                  Problem signing in? <span className="text-primary cursor-pointer"><a href="mailto:teamkingsrockgg23@gmail.com" target="_blank">Contact Support</a></span>
+                  Problem signing in?{" "}
+                  <span className="text-primary cursor-pointer">
+                    <a
+                      href="mailto:teamkingsrockgg23@gmail.com"
+                      target="_blank"
+                    >
+                      Contact Support
+                    </a>
+                  </span>
                 </span>
               </div>
             </div>

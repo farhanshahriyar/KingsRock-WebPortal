@@ -38,11 +38,18 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Fetch session and set role on page load
     const initializeSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       setSession(session);
+      const userInfo = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .single();
 
-      if (session?.user?.user_metadata?.role) {
-        setRole(session.user.user_metadata.role);
+      if (userInfo?.data?.role) {
+        setRole(userInfo?.data?.role as any);
       } else {
         setRole("kr_member"); // Default to kr_member if no role exists
       }
@@ -53,13 +60,29 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
     initializeSession();
 
     // Subscribe to session changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session?.user?.user_metadata?.role) {
-        setRole(session.user.user_metadata.role);
-      } else {
-        setRole("kr_member");
-      }
+      // if (session?.user?.user_metadata?.role) {
+      //   setRole(session.user.user_metadata.role);
+      // } else {
+      //   setRole("kr_member");
+      // }
+      if (!session) return;
+      (async function () {
+        const userInfo = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session?.user?.id)
+          .single();
+
+        if (userInfo?.data?.role) {
+          setRole(userInfo?.data?.role as any);
+        } else {
+          setRole("kr_member"); // Default to kr_member if no role exists
+        }
+      })();
       setLoading(false);
     });
 
@@ -78,15 +101,18 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 }
 
 const App = () => {
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: 1,
-        refetchOnWindowFocus: false,
-        staleTime: 5 * 60 * 1000, // 5 minutes
-      },
-    },
-  }));
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: 1,
+            refetchOnWindowFocus: false,
+            staleTime: 5 * 60 * 1000, // 5 minutes
+          },
+        },
+      })
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -110,23 +136,37 @@ const App = () => {
                             <main className="flex-1 p-4">
                               <Routes>
                                 <Route path="/" element={<Index />} />
-                                <Route path="/attendance" element={<Attendance />} />
+                                <Route
+                                  path="/attendance"
+                                  element={<Attendance />}
+                                />
                                 <Route path="/noc" element={<NOC />} />
                                 <Route path="/members" element={<Members />} />
                                 <Route path="/profile" element={<Profile />} />
-                                <Route path="/settings" element={<Settings />} />
-                                <Route path="/update-logs" element={<UpdateLogs />} />
-                                <Route path="/leave-request" element={<LeaveRequest />} />
-                                <Route path="/add-update-logs" element={<AddUpdateLogs />} />
+                                <Route
+                                  path="/settings"
+                                  element={<Settings />}
+                                />
+                                <Route
+                                  path="/update-logs"
+                                  element={<UpdateLogs />}
+                                />
+                                <Route
+                                  path="/leave-request"
+                                  element={<LeaveRequest />}
+                                />
+                                <Route
+                                  path="/add-update-logs"
+                                  element={<AddUpdateLogs />}
+                                />
                                 <Route
                                   path="/manage-members"
                                   element={
                                     <ProtectedComponent feature="manage_members">
                                       <ManageMembers />
                                     </ProtectedComponent>
-                                  } 
+                                  }
                                 />
-
                               </Routes>
                             </main>
                           </div>

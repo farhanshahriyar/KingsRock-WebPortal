@@ -1,5 +1,10 @@
-
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 type Role = "kr_admin" | "kr_manager" | "kr_member";
@@ -14,7 +19,16 @@ interface RoleContextType {
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 const featurePermissions = {
-  kr_admin: ["*", "dashboard", "settings", "members", "manage_members", "tournaments", "schedule", "leave_request"], // All access
+  kr_admin: [
+    "*",
+    "dashboard",
+    "settings",
+    "members",
+    "manage_members",
+    "tournaments",
+    "schedule",
+    "leave_request",
+  ], // All access
   kr_manager: [
     "dashboard",
     "announcement",
@@ -37,7 +51,7 @@ const featurePermissions = {
     "noc",
     "leave_request",
     "update_logs",
-    // UI testing purposes it should be 
+    // UI testing purposes it should be
     // "members.view",
     // "manage_members",
     // "manage_members.view",
@@ -53,22 +67,29 @@ const roleDisplayNames = {
 
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>("kr_member");
+  const [user, setUser] = useState<null | object>(null);
 
   // Initialize role from local storage or session if available
   useEffect(() => {
     const initializeRole = async () => {
       // Try to get role from Supabase session
       const { data } = await supabase.auth.getSession();
+      if (!data?.session) return;
       const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.session.user.user_metadata.sub)
+        .from("profiles")
+        .select("*")
+        .eq("id", data.session.user.id)
         .single();
-      console.log(profile)
-      if (profile?.role) {
-        setRole(profile.role as Role);
-      }
+      console.log(profile);
+      // if (profile?.role) {
+      //   setRole(profile.role as Role);
+      // }
 
+      if (profile?.role) {
+        setRole(profile?.role as any);
+      } else {
+        setRole("kr_member"); // Default to kr_member if no role exists
+      }
     };
 
     initializeRole();
@@ -77,7 +98,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const canAccess = (feature: string) => {
     if (role === "kr_admin") return true;
     const permissions = featurePermissions[role] || [];
-    return permissions.includes(feature) || permissions.includes(feature.split(".")[0]);
+    return (
+      permissions.includes(feature) ||
+      permissions.includes(feature.split(".")[0])
+    );
   };
 
   const getRoleDisplay = () => {
@@ -107,6 +131,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
 export function useRole() {
   const context = useContext(RoleContext);
+  console.log(context);
   if (context === undefined) {
     throw new Error("useRole must be used within a RoleProvider");
   }
