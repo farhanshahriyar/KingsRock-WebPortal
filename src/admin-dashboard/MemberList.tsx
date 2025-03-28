@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../integrations/supabase/client"; 
+import { Tables } from "../integrations/supabase/types"; 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2 } from "lucide-react";
@@ -7,67 +9,95 @@ import { EditMemberDialog } from "./EditMemberDialog";
 import { formatDistanceToNow } from "date-fns";
 import { ProtectedComponent } from "@/components/ProtectedComponent";
 
-// Dummy data for UI demo
-const mockUsers = [
-  {
-    id: "usr_123456789",
-    avatar_url: "https://randomuser.me/api/portraits/men/1.jpg",
-    username: "johndoe",
-    full_name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "+1 (555) 123-4567",
-    provider: "email",
-    role: "kr_member",
-    created_at: "2023-01-15T10:30:00Z",
-    last_sign_in_at: "2023-06-10T14:20:00Z"
-  },
-  {
-    id: "usr_987654321",
-    avatar_url: "https://randomuser.me/api/portraits/women/2.jpg",
-    username: "janedoe",
-    full_name: "Jane Doe",
-    email: "jane.doe@example.com",
-    phone: "+1 (555) 987-6543",
-    provider: "google",
-    role: "kr_manager",
-    created_at: "2023-02-20T09:15:00Z",
-    last_sign_in_at: "2023-06-12T11:45:00Z"
-  },
-  {
-    id: "usr_456123789",
-    avatar_url: "https://randomuser.me/api/portraits/men/3.jpg",
-    username: "admin_user",
-    full_name: "Admin User",
-    email: "admin@example.com",
-    phone: "+1 (555) 789-0123",
-    provider: "email",
-    role: "kr_admin",
-    created_at: "2023-01-05T08:00:00Z",
-    last_sign_in_at: "2023-06-15T13:30:00Z"
-  }
-];
-
 export function MembersList() {
-  const [users, setUsers] = useState(mockUsers);
-  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [users, setUsers] = useState<Tables<'profiles'>[]>([]);
+  const [selectedUser, setSelectedUser] = useState<Tables<'profiles'> | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const handleDelete = (userId: string) => {
-    // This would connect to the backend in a real implementation
-    setUsers(users.filter(user => user.id !== userId));
+  // Fetch the users (profiles) data from Supabase
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*');
+        
+      if (error) {
+        console.error("Error fetching users:", error);
+      } else {
+        setUsers(data);
+      }
+    };
+
+    fetchUsers();
+
+    // For supabase-js v2.x, use `.channel` for real-time subscription
+    const userChannel = supabase
+      .channel('profiles')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, payload => {
+        console.log('Received payload:', payload);
+        if (payload.eventType === 'INSERT') {
+          setUsers((prevUsers) => [...prevUsers, payload.new]); // Add new user
+        } else if (payload.eventType === 'UPDATE') {
+          setUsers((prevUsers) =>
+            prevUsers.map((user) =>
+              user.id === payload.new.id ? payload.new : user
+            )
+          ); // Update existing user
+        } else if (payload.eventType === 'DELETE') {
+          setUsers((prevUsers) =>
+            prevUsers.filter((user) => user.id !== payload.old.id)
+          ); // Remove deleted user
+        }
+      })
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      userChannel.unsubscribe();
+    };
+  }, []);
+
+  const handleDelete = async (userId: string) => {
+    try {
+      console.log("Deleting user with id:", userId); // Added console log for debugging
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+      
+      if (error) {
+        console.error("Error deleting user:", error);
+      } else {
+        setUsers((prevUsers) => prevUsers.filter((user) => user.id !== userId));
+      }
+    } catch (error) {
+      console.error("Error in deleting user:", error);
+    }
   };
 
-  const handleEdit = (user: any) => {
+  const handleEdit = (user: Tables<'profiles'>) => {
     setSelectedUser(user);
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateUser = (updatedUser: any) => {
-    // This would connect to the backend in a real implementation
-    setUsers(users.map(user => 
-      user.id === updatedUser.id ? updatedUser : user
-    ));
-    setIsEditDialogOpen(false);
+  const handleUpdateUser = async (updatedUser: Tables<'profiles'>) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(updatedUser)
+        .eq('id', updatedUser.id);
+        
+      if (error) {
+        console.error("Error updating user:", error);
+      } else {
+        setUsers((prevUsers) =>
+          prevUsers.map((user) => (user.id === updatedUser.id ? updatedUser : user))
+        );
+        setIsEditDialogOpen(false);
+      }
+    } catch (error) {
+      console.error("Error in updating user:", error);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -89,12 +119,9 @@ export function MembersList() {
               <TableHead>UID</TableHead>
               <TableHead>Username</TableHead>
               <TableHead>Full Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Provider</TableHead>
               <TableHead>Role</TableHead>
+              {/* <TableHead>Email</TableHead> */}
               <TableHead>Created At</TableHead>
-              <TableHead>Last Sign In</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -104,54 +131,27 @@ export function MembersList() {
                 <TableCell>
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={user.avatar_url} alt={user.username} />
-                    <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>{user.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                 </TableCell>
                 <TableCell className="font-mono text-xs">{user.id}</TableCell>
                 <TableCell>{user.username}</TableCell>
                 <TableCell>{user.full_name}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>{user.phone}</TableCell>
-                <TableCell>
-                  <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-                    {user.provider}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span 
-                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                      user.role === 'kr_admin' 
-                        ? 'bg-purple-50 text-purple-700' 
-                        : user.role === 'kr_manager' 
-                          ? 'bg-green-50 text-green-700' 
-                          : 'bg-gray-50 text-gray-700'
-                    }`}
-                  >
-                    {user.role === 'kr_admin' 
-                      ? 'KR Admin' 
-                      : user.role === 'kr_manager' 
-                        ? 'KR Manager' 
-                        : 'KR Member'}
-                  </span>
-                </TableCell>
-                <TableCell className="whitespace-nowrap">{formatDate(user.created_at)}</TableCell>
-                <TableCell className="whitespace-nowrap">{formatDate(user.last_sign_in_at)}</TableCell>
+                <TableCell>{user.role}</TableCell>
+                {/* <TableCell>{user.email}</TableCell>  */}
+                <TableCell>{formatDate(user.created_at)}</TableCell>
                 <TableCell>
                   <div className="flex space-x-2">
                     <ProtectedComponent feature="members.edit">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleEdit(user)}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => handleEdit(user)}>
                         <Edit className="h-4 w-4 mr-1" />
                         Edit
                       </Button>
                     </ProtectedComponent>
                     <ProtectedComponent feature="members.delete">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         onClick={() => handleDelete(user.id)}
                       >
@@ -167,7 +167,7 @@ export function MembersList() {
         </Table>
       </div>
 
-      <EditMemberDialog 
+      <EditMemberDialog
         user={selectedUser}
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}

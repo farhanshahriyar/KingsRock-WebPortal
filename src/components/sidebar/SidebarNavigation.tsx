@@ -9,8 +9,9 @@ const menuItems = [
   { title: "Attendance", icon: Calendar, path: "/attendance", feature: "attendance" },
   { title: "NOC List", icon: FileText, path: "/noc", feature: "noc" },
   { title: "Leave Request", icon: FileText, path: "/leave-request", feature: "leave_request" },
-  { title: "Update Logs", icon: History, path: "/update-logs", feature: "update_logs" },
   { title: "Manage Members", icon: UserCog, path: "/manage-members", feature: "manage_members" },
+  { title: "Manage User Reports", icon: UserCog, path: "/manage-user-reports", feature: "manage_user-reports" },
+  { title: "Update Logs", icon: History, path: "/update-logs", feature: "update_logs" },
 ];
 
 export function SidebarNavigation() {

@@ -14,7 +14,7 @@ interface RoleContextType {
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 const featurePermissions = {
-  kr_admin: ["*", "dashboard", "settings", "members", "manage_members", "tournaments", "schedule", "leave_request"], // All access
+  kr_admin: ["*", "dashboard", "settings", "members", "manage_members", "tournaments", "schedule", "leave_request, manage_user-reports"], // All access
   kr_manager: [
     "dashboard",
     "announcement",
