@@ -51,18 +51,23 @@ export default function Auth() {
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      setLoading(true);
+      // setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      if (error) throw error;
+      console.log(data?.user?.id);
+      if (!data.session) return toast.error("user not found");
       const userInfo = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", data.user.id)
+        .eq("id", data?.user?.id)
         .single();
-      console.log(userInfo.data);
+      console.log(userInfo);
+      if (userInfo.data === null) {
+        toast.error("User not found");
+        return;
+      }
       // Set the user's role
       if (userInfo?.data?.role) {
         setRole(userInfo.data.role as any);

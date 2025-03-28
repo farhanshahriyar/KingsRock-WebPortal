@@ -1,4 +1,3 @@
-
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Sun, Moon, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,10 +19,15 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { useRole } from "@/contexts/RoleContext";
 
 export function DashboardHeader() {
   const { setTheme, theme } = useTheme();
@@ -34,26 +38,29 @@ export function DashboardHeader() {
   const [userFullName, setUserFullName] = useState<string>("");
   const [userInitials, setUserInitials] = useState<string>("--");
   const [searchQuery, setSearchQuery] = useState<string>("");
-
+  const { setRole } = useRole();
   useEffect(() => {
     const fetchUserProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (user) {
         setUserEmail(user.email || "");
 
         // Fetch profile data
         const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, avatar_url')
-          .eq('id', user.id)
+          .from("profiles")
+          .select("full_name, avatar_url")
+          .eq("id", user.id)
           .single();
 
         if (profile?.full_name) {
           setUserFullName(profile.full_name);
           const initials = profile.full_name
-            .split(' ')
+            .split(" ")
             .map((n: string) => n[0])
-            .join('')
+            .join("")
             .toUpperCase();
           setUserInitials(initials);
           // Set avatar image URL
@@ -66,25 +73,26 @@ export function DashboardHeader() {
 
     fetchUserProfile();
 
-
     // Listen for realtime changes to the profile
     const channel = supabase
-      .channel('profile_changes')
+      .channel("profile_changes")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${supabase.auth.getUser().then(({ data }) => data.user?.id)}`,
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${supabase.auth
+            .getUser()
+            .then(({ data }) => data.user?.id)}`,
         },
         async (payload) => {
           if (payload.new.full_name) {
             setUserFullName(payload.new.full_name);
             const initials = payload.new.full_name
-              .split(' ')
+              .split(" ")
               .map((n: string) => n[0])
-              .join('')
+              .join("")
               .toUpperCase();
             setUserInitials(initials);
           }
@@ -216,12 +224,17 @@ export function DashboardHeader() {
               </TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => navigate("/profile")}>Profile</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/settings")}>Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/profile")}>
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/settings")}>
+                Settings
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-red-600"
                 onClick={async () => {
                   await supabase.auth.signOut();
+                  setRole(null);
                   navigate("/auth");
                 }}
               >
@@ -262,6 +275,3 @@ export function DashboardHeader() {
     </header>
   );
 }
-
-
-

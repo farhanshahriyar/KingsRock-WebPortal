@@ -66,7 +66,7 @@ const roleDisplayNames = {
 };
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<Role>("kr_member");
+  const [role, setRole] = useState<Role>(null);
   const [user, setUser] = useState<null | object>(null);
 
   // Initialize role from local storage or session if available
@@ -80,7 +80,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         .select("*")
         .eq("id", data.session.user.id)
         .single();
-      console.log(profile);
+
       // if (profile?.role) {
       //   setRole(profile.role as Role);
       // }
@@ -96,7 +96,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const canAccess = (feature: string) => {
-    if (role === "kr_admin") return true;
+    console.log(feature, "feature", role);
+    if (role === "kr_admin" || role === null) return true;
+    console.log("s");
     const permissions = featurePermissions[role] || [];
     return (
       permissions.includes(feature) ||
@@ -131,7 +133,6 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
 export function useRole() {
   const context = useContext(RoleContext);
-  console.log(context);
   if (context === undefined) {
     throw new Error("useRole must be used within a RoleProvider");
   }
