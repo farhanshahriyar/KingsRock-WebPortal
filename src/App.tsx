@@ -14,12 +14,8 @@ import Auth from "./pages/Auth";
 import Attendance from "./pages/Attendance";
 import NOC from "./pages/NOC";
 import Members from "./pages/Members";
-// import Announcement from "./pages/Announcement";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
-// import TournamentsMatches from "./pages/TournamentsMatches";
-// import Schedule from "./pages/Schedule";
-// import RequestSchedule from "./pages/RequestSchedule";
 import UpdateLogs from "./pages/UpdateLogs";
 import LeaveRequest from "./pages/LeaveRequest";
 import { ReactNode, useEffect, useState } from "react";
@@ -28,6 +24,7 @@ import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import ManageMembers from "./pages/ManageMembers";
 import { ProtectedComponent } from "./components/ProtectedComponent";
 import AddUpdateLogs from "./pages/AddUpdateLogs";
+import { ManageUserReports } from "@/admin-dashboard/ManageUserReports";
 
 // ProtectedRoute Component
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -164,6 +161,14 @@ const App = () => {
                                   element={
                                     <ProtectedComponent feature="manage_members">
                                       <ManageMembers />
+                                    </ProtectedComponent>
+                                  }
+                                />
+                                <Route
+                                  path="/manage-user-reports"
+                                  element={
+                                    <ProtectedComponent feature="manage_user-reports">
+                                      <ManageUserReports />
                                     </ProtectedComponent>
                                   }
                                 />

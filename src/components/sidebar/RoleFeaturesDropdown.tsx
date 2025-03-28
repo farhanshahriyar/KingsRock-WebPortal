@@ -17,12 +17,13 @@ const roleFeatures: RoleFeatures = {
   kr_admin: [
     "All Features",
     "Full access to Dashboard",
-    "Create/Edit Announcements",
+    // "Create/Edit Announcements",
     "Manage Attendance",
-    "Manage NOC",
+    "Manage NOCs",
+    "Manage Leaves",
     "Manage Members",
-    "Manage Tournaments",
-    "Manage Schedule",
+    "Manage Users Reports",
+    "Manage Update Logs",
   ],
   kr_manager: [
     "Limited Dashboard Access",
@@ -36,7 +37,8 @@ const roleFeatures: RoleFeatures = {
   kr_member: [
     "Limited Dashboard Access",
     "Manage Attendance",
-    "View NOC",
+    "View/Request NOC",
+    "View/Request Leave",
     "View Updatelogs",
   ],
 };

@@ -27,7 +27,7 @@ const featurePermissions = {
     "manage_members",
     "tournaments",
     "schedule",
-    "leave_request",
+    "leave_request, manage_user-reports",
   ], // All access
   kr_manager: [
     "dashboard",
